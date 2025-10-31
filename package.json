@@ -1,0 +1,29 @@
+{
+  "name": "ai-travel-planner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 5173",
+    "generate-pdf": "node scripts/generate-pdf.js"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.23.1",
+    "@amap/amap-jsapi-loader": "^1.0.1",
+    "@supabase/supabase-js": "^2.45.4",
+    "zustand": "^4.5.2",
+    "js-cookie": "^3.0.5",
+    "chart.js": "^4.4.3",
+    "lucide-react": "^0.446.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vite": "^4.5.3",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.2"
+  }
+}
