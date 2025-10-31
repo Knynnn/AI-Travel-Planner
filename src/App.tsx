@@ -9,7 +9,6 @@ export default function App() {
         <nav className="nav">
           <NavLink to="/" end>首页</NavLink>
           <NavLink to="/plan">行程规划</NavLink>
-          <NavLink to="/budget">预算与开销</NavLink>
           <NavLink to="/settings">设置</NavLink>
           <NavLink to="/login">登录</NavLink>
         </nav>

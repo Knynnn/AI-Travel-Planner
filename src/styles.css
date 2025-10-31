@@ -24,3 +24,7 @@ body { margin: 0; font-family: system-ui, Arial; background: var(--bg); color: v
 .field input, .field textarea, .field select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #1c2540; background: #0e1728; color: var(--text); }
 .muted { color: var(--muted); }
 .map { width: 100%; height: 420px; border-radius: 10px; overflow: hidden; }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

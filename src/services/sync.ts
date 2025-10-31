@@ -27,3 +27,13 @@ export async function syncExpenses(expenses: Expense[]) {
   })));
   if (error) throw error;
 }
+
+export type CloudPlanRow = { id: string; destination: string; data: Itinerary; updated_at: string };
+
+export async function fetchCloudItineraries(): Promise<CloudPlanRow[]> {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error('未配置 Supabase');
+  const { data, error } = await supabase.from('plans').select('*').order('updated_at', { ascending: false });
+  if (error) throw error;
+  return (data || []) as CloudPlanRow[];
+}

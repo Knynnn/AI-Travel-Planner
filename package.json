@@ -15,6 +15,7 @@
     "react-router-dom": "^6.23.1",
     "@amap/amap-jsapi-loader": "^1.0.1",
     "@supabase/supabase-js": "^2.45.4",
+    "pdfkit": "^0.15.0",
     "zustand": "^4.5.2",
     "js-cookie": "^3.0.5",
     "chart.js": "^4.4.3",
