@@ -1,26 +1,46 @@
 import React, { useState } from 'react';
 import { Itinerary } from '@/types';
 import VoiceInput from './VoiceInput';
-import { generateItineraryFromText } from '@/services/llm';
+import { generateItineraryFromTextStream, refineItineraryFromTextStream } from '@/services/llm';
 
 type Props = {
   onItinerary: (it: Itinerary) => void;
   onLoadingChange?: (loading: boolean) => void;
+  onPreviewUpdate?: (raw: string) => void;
+  onDraftUpdate?: (it?: Itinerary) => void;
+  currentItinerary?: Itinerary;
 };
 
-export default function PlanForm({ onItinerary, onLoadingChange }: Props) {
+export default function PlanForm({ onItinerary, onLoadingChange, onPreviewUpdate, onDraftUpdate, currentItinerary }: Props) {
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewRaw, setPreviewRaw] = useState('');
+  const isRefine = !!currentItinerary;
 
   const onSubmit = async () => {
     setLoading(true); onLoadingChange?.(true); setError(null);
     try {
       if (!prompt.trim()) throw new Error('请先输入行程描述');
-      const it = await generateItineraryFromText(prompt.trim());
-      onItinerary(it);
+      if (isRefine && currentItinerary) {
+        const updated = await refineItineraryFromTextStream(currentItinerary, prompt.trim(), (u) => {
+          setPreviewRaw(u.raw);
+          onPreviewUpdate?.(u.raw);
+          if (u.parsed) onDraftUpdate?.(u.parsed);
+        });
+        onItinerary(updated);
+        setPrompt('');
+      } else {
+        const it = await generateItineraryFromTextStream(prompt.trim(), (u) => {
+          setPreviewRaw(u.raw);
+          onPreviewUpdate?.(u.raw);
+          if (u.parsed) onDraftUpdate?.(u.parsed);
+        });
+        onItinerary(it);
+        setPrompt('');
+      }
     } catch (e: any) {
-      setError(e.message || '生成失败');
+      setError(e.message || (isRefine ? '调整失败' : '生成失败'));
     } finally {
       setLoading(false); onLoadingChange?.(false);
     }
@@ -36,13 +56,13 @@ export default function PlanForm({ onItinerary, onLoadingChange }: Props) {
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span className="spinner" style={{ width: 16, height: 16, border: '2px solid #5fb3f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-              <span className="muted">正在生成行程，请稍候…</span>
+              <span className="muted">{isRefine ? '正在应用调整，请稍候…' : '正在生成行程，请稍候…'}</span>
             </div>
           </div>
         )}
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button className="btn" onClick={onSubmit} disabled={loading}>{loading ? '生成中…' : '生成行程'}</button>
+        <button className="btn" onClick={onSubmit} disabled={loading}>{loading ? (isRefine ? '应用中…' : '生成中…') : (isRefine ? '应用调整' : '生成行程')}</button>
         {error && <span className="muted">{error}</span>}
       </div>
     </div>

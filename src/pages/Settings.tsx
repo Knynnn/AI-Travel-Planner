@@ -52,6 +52,16 @@ export default function Settings() {
             <input value={s.amapKey || ''} onChange={(e) => set({ amapKey: e.target.value })} placeholder="用于地图加载与地理编码" />
           </div>
           <div className="field">
+            <label>高德安全密钥（jscode）</label>
+            <input value={s.amapJscode || ''} onChange={(e) => set({ amapJscode: e.target.value })} placeholder="2021-12-02 后申请的 Key 调用 REST 需配合" />
+            <small className="muted">生产环境建议通过服务端代理自动附加；本地可在此填写。</small>
+          </div>
+          <div className="field">
+            <label>高德 Web服务 API Key（REST）</label>
+            <input value={s.amapServiceKey || ''} onChange={(e) => set({ amapServiceKey: e.target.value })} placeholder="用于 Web 服务接口（推荐）" />
+            <small className="muted">避免 USERKEY_PLAT_NOMATCH：REST 请使用 Web服务 Key；JS API 仅用于前端地图库与插件。</small>
+          </div>
+          <div className="field">
             <label>Supabase URL</label>
             <input value={s.supabaseUrl || ''} onChange={(e) => set({ supabaseUrl: e.target.value })} placeholder="可选：用于云端同步" />
           </div>

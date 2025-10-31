@@ -8,6 +8,8 @@ type SettingsState = {
   openaiBase?: string; // allow custom base
   model?: string;
   amapKey?: string;
+  amapJscode?: string; // 高德安全密钥（jscode），部分 REST API 需配合
+  amapServiceKey?: string; // 高德 Web服务 API Key（用于 REST 接口）
   supabaseUrl?: string;
   supabaseAnonKey?: string;
   set: (partial: Partial<SettingsState>) => void;
