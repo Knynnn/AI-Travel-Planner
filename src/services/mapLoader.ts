@@ -162,6 +162,58 @@ export function drawDrivingRoutes(map: any, coords: Array<{ lat: number; lng: nu
   }
 }
 
+// 单段路线绘制：支持驾驶/步行/公交；失败则回退为直线 Polyline
+export function drawRouteSegment(
+  map: any,
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+  mode: 'car' | 'walk' | 'bus' = 'car'
+) {
+  const AMap = (window as any).AMap;
+  if (!AMap || !map || !from || !to) return;
+  const a = new AMap.LngLat(from.lng, from.lat);
+  const b = new AMap.LngLat(to.lng, to.lat);
+  const fallback = () => {
+    try {
+      const line = new AMap.Polyline({ path: [a, b], showDir: true, strokeColor: '#3366FF', strokeWeight: 4 });
+      line.setMap(map);
+    } catch {}
+  };
+  try {
+    if (typeof AMap.plugin === 'function') {
+      if (mode === 'car') {
+        AMap.plugin(['AMap.Driving'], () => {
+          try {
+            const driving = new AMap.Driving({ map, hideMarkers: false });
+            driving.search(a, b, (status: string) => { if (status !== 'complete') fallback(); });
+          } catch { fallback(); }
+        });
+        return;
+      }
+      if (mode === 'walk') {
+        AMap.plugin(['AMap.Walking'], () => {
+          try {
+            const walking = new AMap.Walking({ map, hideMarkers: false });
+            walking.search(a, b, (status: string) => { if (status !== 'complete') fallback(); });
+          } catch { fallback(); }
+        });
+        return;
+      }
+      if (mode === 'bus') {
+        AMap.plugin(['AMap.Transfer'], () => {
+          try {
+            // 未指定城市时由高德自行推断，若失败则回退
+            const transfer = new AMap.Transfer({ map, nightflag: true });
+            transfer.search(a, b, (status: string) => { if (status !== 'complete') fallback(); });
+          } catch { fallback(); }
+        });
+        return;
+      }
+    }
+  } catch { /* ignore */ }
+  fallback();
+}
+
 export async function searchPlace(keyword: string, city?: string): Promise<{ lat: number; lng: number; name: string } | null> {
   const jsList = await searchPlacesViaJsApi(keyword, city, 1);
   if (jsList.length) {

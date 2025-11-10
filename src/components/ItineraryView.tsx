@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Itinerary } from '@/types';
-import { loadAMap, geocode, searchPlace, searchPlaces, drawDrivingRoutes } from '@/services/mapLoader';
-import { buildAmapNavigationUrl } from '@/services/navigation';
+import { loadAMap, geocode, searchPlace, searchPlaces, drawDrivingRoutes, drawRouteSegment } from '@/services/mapLoader';
+// 外部导航链接不再使用，仅在本页绘制路线
 import { useSettings } from '@/store/settings';
 
 type Props = { itinerary?: Itinerary; start?: { lat: number; lng: number }; startAddr?: string; generating?: boolean };
@@ -211,8 +211,15 @@ export default function ItineraryView({ itinerary, start, startAddr, generating 
                                     if (g) { from = g; fromName = txt; }
                                   }
                                 }
-                                const url = buildAmapNavigationUrl(from, toLoc, fromName, key, navMode);
-                                window.open(url, '_blank');
+                                // 两种导航方式：当前页绘制路线 或 在高德地图中打开
+                                if (from) {
+                                  const map = mapObjRef.current;
+                                  if (map) {
+                                    drawRouteSegment(map, from, toLoc, navMode);
+                                    try { map.setFitView(); } catch {}
+                                  }
+                                }
+                                // 不再跳转新页面
                               }}>开始导航</button>
                               <button className="btn tiny secondary" onClick={() => setNavOpenKey(null)}>取消</button>
                             </div>
