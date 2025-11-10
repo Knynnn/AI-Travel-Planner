@@ -224,7 +224,7 @@ export async function searchPlace(keyword: string, city?: string): Promise<{ lat
     const it = jsList[0];
     return { lat: it.lat, lng: it.lng, name: it.name };
   }
-  const data = await amapFetch('/v3/place/text', { keywords: keyword, ...(city ? { city } : {}), offset: 1, page: 1, citylimit: true });
+  const data = await amapFetch('/v3/place/text', { keywords: keyword, ...(city ? { city } : {}), offset: 1, page: 1, citylimit: true, extensions: 'all' });
   const status = data?.status;
   const infocode = data?.infocode;
   if (status === '0' && infocode === '10009') return null;
@@ -235,10 +235,10 @@ export async function searchPlace(keyword: string, city?: string): Promise<{ lat
   return { lat, lng, name: poi.name };
 }
 
-export async function searchPlaces(keyword: string, city?: string, limit: number = 5): Promise<Array<{ lat: number; lng: number; name: string; address?: string; district?: string }>> {
+export async function searchPlaces(keyword: string, city?: string, limit: number = 5): Promise<Array<{ lat: number; lng: number; name: string; address?: string; district?: string; photos?: Array<{ url: string; title?: string }> }>> {
   const jsList = await searchPlacesViaJsApi(keyword, city, limit);
   if (jsList.length) return jsList;
-  const data = await amapFetch('/v3/place/text', { keywords: keyword, ...(city ? { city } : {}), offset: Math.max(1, Math.min(limit, 20)), page: 1, citylimit: true });
+  const data = await amapFetch('/v3/place/text', { keywords: keyword, ...(city ? { city } : {}), offset: Math.max(1, Math.min(limit, 20)), page: 1, citylimit: true, extensions: 'all' });
   const status = data?.status;
   const infocode = data?.infocode;
   if (status === '0' && infocode === '10009') return [];
@@ -248,6 +248,45 @@ export async function searchPlaces(keyword: string, city?: string, limit: number
     .slice(0, limit)
     .map(p => {
       const [lng, lat] = String(p.location).split(',').map(Number);
-      return { lat, lng, name: p.name, address: p.address, district: p.adname || p.pname };
+      const photos = Array.isArray(p.photos) ? p.photos.map((ph: any) => ({ url: ph?.url || ph?.photo || '', title: ph?.title || '' })).filter((o: any) => !!o.url) : [];
+      return { lat, lng, name: p.name, address: p.address, district: p.adname || p.pname, photos };
     });
+}
+
+// 获取地点图片（取关键字匹配的首条 POI 的 photos）
+export async function fetchPlacePhotos(keyword: string, city?: string, limit: number = 3): Promise<string[]> {
+  // 先尝试 JS API，失败再回退 REST
+  const viaJs = await fetchPlacePhotosViaJsApi(keyword, city, limit);
+  if (viaJs.length) return viaJs;
+  const data = await amapFetch('/v3/place/text', { keywords: keyword, ...(city ? { city } : {}), offset: 1, page: 1, citylimit: true, extensions: 'all' });
+  const poi = data?.pois?.[0];
+  const photos: any[] = poi?.photos || [];
+  const urls = photos.map((ph: any) => ph?.url || ph?.photo || '').filter((u: string) => !!u);
+  return urls.slice(0, Math.max(1, Math.min(limit, 10)));
+}
+// 通过 JS API 获取地点照片：优先从搜索结果或详情中读取 photos
+async function fetchPlacePhotosViaJsApi(keyword: string, city?: string, limit: number = 3): Promise<string[]> {
+  try {
+    await loadAMap();
+    const AMap = (window as any).AMap;
+    return await new Promise((resolve) => {
+      const ps = new AMap.PlaceSearch({ city: city || undefined, citylimit: !!city });
+      ps.search(keyword, (status: string, result: any) => {
+        const pois = result?.poiList?.pois || result?.pois || [];
+        const first = pois[0];
+        const pickUrls = (photos: any[]) => (Array.isArray(photos) ? photos.map((ph: any) => ph?.url || ph?.photo || '').filter((u: string) => !!u) : []);
+        let urls = pickUrls(first?.photos || []);
+        if (urls.length) return resolve(urls.slice(0, Math.max(1, Math.min(limit, 10))));
+        const id = first?.id || first?.poiid || first?.uid;
+        if (!id || typeof ps.getDetails !== 'function') return resolve([]);
+        ps.getDetails(id, (st: string, det: any) => {
+          const poi = det?.poi || det?.data || {};
+          urls = pickUrls(poi?.photos || []);
+          resolve(urls.slice(0, Math.max(1, Math.min(limit, 10))));
+        });
+      });
+    });
+  } catch {
+    return [];
+  }
 }

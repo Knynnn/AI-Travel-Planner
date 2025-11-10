@@ -23,6 +23,7 @@ export default function ItineraryView({ itinerary, start, startAddr, generating 
   const [routeStartText, setRouteStartText] = useState('');
   const [routeEndText, setRouteEndText] = useState('');
   // 公交换乘城市由行程目的地自动推断，无需手动输入
+  // 图片展示功能已移除
 
   const createNumberMarker = (AMap: any, loc: { lat: number; lng: number }, title: string, num: number) => {
     const el = document.createElement('div');
@@ -123,7 +124,7 @@ export default function ItineraryView({ itinerary, start, startAddr, generating 
             <p className="muted">{generating ? '正在根据描述生成行程，请稍候…' : '生成后将在此展示行程详情与地图。'}</p>
           ) : (
             <div>
-              <img src={`https://source.unsplash.com/featured/?${encodeURIComponent(itinerary.destination)}`} alt={itinerary.destination} style={{ width: '100%', borderRadius: 10, marginBottom: 8 }} />
+              {/* 目的地头图已移除（不使用 Unsplash 兜底） */}
               <p className="muted">目的地：{itinerary.destination}</p>
               {startAddr && <p className="muted">出发点：{startAddr}</p>}
               {!amapKey && <p className="muted">提示：未配置高德地图 Key，地图与定位功能不可用。请前往“设置”页面输入 Key。</p>}
@@ -136,6 +137,7 @@ export default function ItineraryView({ itinerary, start, startAddr, generating 
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ display: 'inline-flex', width: 20, height: 20, borderRadius: 10, background: '#3366FF', color: '#fff', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{(indexMapRef.current[`act:${i}:${j}`] || 0) || ''}</span>
                           <span>{a.time ? `${a.time} ` : ''}{a.name}{a.address ? `（${a.address}）` : ''}{a.notes ? ` - ${a.notes}` : ''}</span>
+                          {/* 图片展示已移除 */}
                         </span>
                         <button className="btn tiny" style={{ marginLeft: 8 }} onClick={async () => {
                           const id = `act:${i}:${j}`;
@@ -190,6 +192,7 @@ export default function ItineraryView({ itinerary, start, startAddr, generating 
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ display: 'inline-flex', width: 20, height: 20, borderRadius: 10, background: '#3366FF', color: '#fff', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{(indexMapRef.current[`hotel:${i}`] || 0) || ''}</span>
                           <span>酒店：{d.hotel}</span>
+                          {/* 图片展示已移除 */}
                         </span>
                         <button className="btn tiny" style={{ marginLeft: 8 }} onClick={async () => {
                           const id = `hotel:${i}`;

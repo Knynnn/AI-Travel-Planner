@@ -50,7 +50,7 @@ export default function PlanForm({ onItinerary, onLoadingChange, onPreviewUpdate
     <div className="card">
       <div className="field" style={{ position: 'relative' }}>
         <label>行程描述（像 ChatGPT 输入一段话）</label>
-        <textarea rows={5} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="例如：12 月初从上海出发，去日本东京 5 天，两个人，预算 8000 元，喜欢美食和动漫，尽量安排去秋叶原和筑地市场，靠近地铁的酒店。" disabled={loading} />
+        <textarea rows={5} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="我想从南京出发去上海，3 天，预算 2 千 元，喜欢美食和城市风光，带孩子" disabled={loading} />
         <VoiceInput onText={(t) => setPrompt(t)} />
         {loading && (
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
