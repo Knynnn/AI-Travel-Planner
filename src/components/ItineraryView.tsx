@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Itinerary } from '@/types';
 import { loadAMap, geocode, searchPlace, searchPlaces, drawDrivingRoutes } from '@/services/mapLoader';
+import { buildAmapNavigationUrl } from '@/services/navigation';
 import { useSettings } from '@/store/settings';
 
 type Props = { itinerary?: Itinerary; start?: { lat: number; lng: number }; startAddr?: string; generating?: boolean };
@@ -10,8 +11,22 @@ export default function ItineraryView({ itinerary, start, startAddr, generating 
   const mapObjRef = useRef<any>(null);
   const coordsMapRef = useRef<Record<string, { lat: number; lng: number }>>({});
   const markerMapRef = useRef<Record<string, any>>({});
+  const orderListRef = useRef<string[]>([]);
+  const indexMapRef = useRef<Record<string, number>>({});
   const amapKey = useSettings.getState().amapKey;
   const [suggestions, setSuggestions] = useState<Record<string, Array<{ lat: number; lng: number; name: string; address?: string; district?: string }>>>({});
+  const [navOpenKey, setNavOpenKey] = useState<string | null>(null);
+  const [navMode, setNavMode] = useState<'car' | 'walk' | 'bus'>('car');
+  const [navStartType, setNavStartType] = useState<'prev' | 'custom'>('prev');
+  const [navCustomStart, setNavCustomStart] = useState('');
+
+  const createNumberMarker = (AMap: any, loc: { lat: number; lng: number }, title: string, num: number) => {
+    const el = document.createElement('div');
+    el.style.cssText = 'width:24px;height:24px;border-radius:12px;background:#3366FF;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;box-shadow:0 0 0 2px #fff;';
+    el.textContent = String(num);
+    const marker = new AMap.Marker({ position: [loc.lng, loc.lat], title, content: el, offset: new AMap.Pixel(-12, -12) });
+    return marker;
+  };
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -35,6 +50,9 @@ export default function ItineraryView({ itinerary, start, startAddr, generating 
       if (start) coords.push(start);
       coordsMapRef.current = {};
       markerMapRef.current = {};
+      orderListRef.current = [];
+      indexMapRef.current = {};
+      let idxCounter = 1;
       for (const day of itinerary.days) {
         for (const act of day.activities) {
           const addr = act.address || act.name;
@@ -51,18 +69,16 @@ export default function ItineraryView({ itinerary, start, startAddr, generating 
             if (poi) loc = { lat: poi.lat, lng: poi.lng };
           }
           if (loc && AMap) {
-            // 使用星形图标标注目的点
-            const starIcon = new AMap.Icon({
-              size: new AMap.Size(24, 24),
-              imageSize: new AMap.Size(24, 24),
-              image: 'https://webapi.amap.com/theme/v1.3/markers/n/mark_bs.png'
-            });
-            const marker = new AMap.Marker({ position: [loc.lng, loc.lat], title: act.name, icon: starIcon });
+            // 使用数字序号标记
+            const marker = createNumberMarker(AMap, loc, act.name, idxCounter);
             marker.setMap(map);
             markers.push(marker);
             coords.push(loc);
             coordsMapRef.current[addr] = loc;
             markerMapRef.current[addr] = marker;
+            indexMapRef.current[addr] = idxCounter;
+            orderListRef.current.push(addr);
+            idxCounter++;
           }
         }
       }
@@ -95,7 +111,10 @@ export default function ItineraryView({ itinerary, start, startAddr, generating 
                   <ul>
                     {d.activities.map((a, j) => (
                       <li key={j}>
-                        {a.time ? `${a.time} ` : ''}{a.name}{a.address ? `（${a.address}）` : ''}{a.notes ? ` - ${a.notes}` : ''}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ display: 'inline-flex', width: 20, height: 20, borderRadius: 10, background: '#3366FF', color: '#fff', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{(indexMapRef.current[a.address || a.name] || 0) || ''}</span>
+                          <span>{a.time ? `${a.time} ` : ''}{a.name}{a.address ? `（${a.address}）` : ''}{a.notes ? ` - ${a.notes}` : ''}</span>
+                        </span>
                         <button className="btn tiny" style={{ marginLeft: 8 }} onClick={async () => {
                           const key = a.address || a.name;
                           let toLoc = coordsMapRef.current[key];
@@ -126,6 +145,7 @@ export default function ItineraryView({ itinerary, start, startAddr, generating 
                                 setTimeout(() => { try { marker.setAnimation(null); } catch {} }, 1200);
                               } catch {}
                             }
+                            setNavOpenKey(key);
                           } else {
                             // 候选检索也不携带 city，仅按关键词匹配
                             const list = await searchPlaces(key, undefined, 5);
@@ -136,6 +156,68 @@ export default function ItineraryView({ itinerary, start, startAddr, generating 
                             }
                           }
                         }}>导航</button>
+                        {navOpenKey === (a.address || a.name) && (
+                          <div className="card" style={{ marginTop: 8 }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                              <label>模式</label>
+                              <select value={navMode} onChange={(e) => setNavMode(e.target.value as any)}>
+                                <option value="car">驾驶</option>
+                                <option value="bus">公交</option>
+                                <option value="walk">步行</option>
+                              </select>
+                              <label style={{ marginLeft: 8 }}>起点</label>
+                              <label><input type="radio" name={`start-${i}-${j}`} checked={navStartType === 'prev'} onChange={() => setNavStartType('prev')} /> 上一个地点</label>
+                              <label><input type="radio" name={`start-${i}-${j}`} checked={navStartType === 'custom'} onChange={() => setNavStartType('custom')} /> 自定义</label>
+                              {navStartType === 'custom' && (
+                                <input type="text" value={navCustomStart} onChange={(e) => setNavCustomStart(e.target.value)} placeholder="输入起点地址或名称" style={{ minWidth: 220 }} />
+                              )}
+                              <button className="btn tiny" onClick={async () => {
+                                const key = a.address || a.name;
+                                // 获取目的地坐标
+                                let toLoc = coordsMapRef.current[key];
+                                if (!toLoc) {
+                                  try {
+                                    if (typeof a.lat === 'number' && typeof a.lng === 'number') {
+                                      toLoc = { lat: a.lat, lng: a.lng } as any;
+                                    }
+                                    if (!toLoc) {
+                                      toLoc = await geocode(key) || undefined as any;
+                                    }
+                                    if (!toLoc) {
+                                      const poi = await searchPlace(key);
+                                      if (poi) toLoc = { lat: poi.lat, lng: poi.lng } as any;
+                                    }
+                                  } catch {}
+                                }
+                                if (!toLoc) { alert('未能获取目的地坐标'); return; }
+                                // 获取起点坐标
+                                let from: { lat: number; lng: number } | null = null;
+                                let fromName = '起点';
+                                if (navStartType === 'prev') {
+                                  const order = orderListRef.current;
+                                  const idx = (indexMapRef.current[key] || 1) - 1;
+                                  const prevKey = idx > 1 ? order[idx - 2] : null; // idx 是从 1 开始，上一项为 idx-1，再转换数组索引
+                                  if (prevKey) {
+                                    from = coordsMapRef.current[prevKey] || null;
+                                    fromName = prevKey;
+                                  }
+                                } else {
+                                  const txt = navCustomStart.trim();
+                                  if (!txt) { alert('请输入自定义起点'); return; }
+                                  const poi = await searchPlace(txt);
+                                  if (poi) { from = { lat: poi.lat, lng: poi.lng }; fromName = poi.name || txt; }
+                                  if (!from) {
+                                    const g = await geocode(txt);
+                                    if (g) { from = g; fromName = txt; }
+                                  }
+                                }
+                                const url = buildAmapNavigationUrl(from, toLoc, fromName, key, navMode);
+                                window.open(url, '_blank');
+                              }}>开始导航</button>
+                              <button className="btn tiny secondary" onClick={() => setNavOpenKey(null)}>取消</button>
+                            </div>
+                          </div>
+                        )}
                         {suggestions[(a.address || a.name)] && (
                           <div className="card" style={{ marginTop: 8 }}>
                             <div className="muted">未能直接定位，以下为候选地点：</div>
@@ -151,12 +233,8 @@ export default function ItineraryView({ itinerary, start, startAddr, generating 
                                     coordsMapRef.current[key2] = { lat: sug.lat, lng: sug.lng };
                                     let marker = markerMapRef.current[key2];
                                     if (!marker) {
-                                      const starIcon = new AMap.Icon({
-                                        size: new AMap.Size(24, 24),
-                                        imageSize: new AMap.Size(24, 24),
-                                        image: 'https://webapi.amap.com/theme/v1.3/markers/n/mark_bs.png'
-                                      });
-                                      marker = new AMap.Marker({ position: [sug.lng, sug.lat], title: sug.name, icon: starIcon });
+                                      const num = indexMapRef.current[key2] || (orderListRef.current.indexOf(key2) + 1) || 1;
+                                      marker = createNumberMarker(AMap, { lat: sug.lat, lng: sug.lng }, sug.name, num);
                                       marker.setMap(map);
                                       markerMapRef.current[key2] = marker;
                                     }
