@@ -163,56 +163,60 @@ export function drawDrivingRoutes(map: any, coords: Array<{ lat: number; lng: nu
 }
 
 // 单段路线绘制：支持驾驶/步行/公交；失败则回退为直线 Polyline
-export function drawRouteSegment(
+export async function drawRouteSegment(
   map: any,
   from: { lat: number; lng: number },
   to: { lat: number; lng: number },
-  mode: 'car' | 'walk' | 'bus' = 'car'
-) {
+  mode: 'car' | 'walk' | 'bus' = 'car',
+  opts?: { panel?: string | HTMLElement; policy?: any; showTraffic?: boolean; autoFitView?: boolean; hideMarkers?: boolean; extensions?: 'base' | 'all' }
+): Promise<boolean> {
   const AMap = (window as any).AMap;
-  if (!AMap || !map || !from || !to) return;
+  if (!AMap || !map || !from || !to) return false;
   const a = new AMap.LngLat(from.lng, from.lat);
   const b = new AMap.LngLat(to.lng, to.lat);
-  const fallback = () => {
+  const showTraffic = opts?.showTraffic ?? true;
+  const autoFitView = opts?.autoFitView ?? true;
+  const hideMarkers = opts?.hideMarkers ?? false;
+  const panel = opts?.panel;
+  const extensions = opts?.extensions ?? 'base';
+
+  return await new Promise<boolean>((resolve) => {
     try {
-      const line = new AMap.Polyline({ path: [a, b], showDir: true, strokeColor: '#3366FF', strokeWeight: 4 });
-      line.setMap(map);
-    } catch {}
-  };
-  try {
-    if (typeof AMap.plugin === 'function') {
+      if (typeof AMap.plugin !== 'function') { resolve(false); return; }
       if (mode === 'car') {
         AMap.plugin(['AMap.Driving'], () => {
           try {
-            const driving = new AMap.Driving({ map, hideMarkers: false });
-            driving.search(a, b, (status: string) => { if (status !== 'complete') fallback(); });
-          } catch { fallback(); }
+            const policy = opts?.policy ?? (AMap.DrivingPolicy ? AMap.DrivingPolicy.LEAST_TIME : undefined);
+            const driving = new AMap.Driving({ map, hideMarkers, showTraffic, autoFitView, panel, extensions, policy });
+            driving.search(a, b, (status: string) => { resolve(status === 'complete'); });
+          } catch { resolve(false); }
         });
         return;
       }
       if (mode === 'walk') {
         AMap.plugin(['AMap.Walking'], () => {
           try {
-            const walking = new AMap.Walking({ map, hideMarkers: false });
-            walking.search(a, b, (status: string) => { if (status !== 'complete') fallback(); });
-          } catch { fallback(); }
+            const walking = new AMap.Walking({ map, hideMarkers, panel });
+            walking.search(a, b, (status: string) => { resolve(status === 'complete'); });
+          } catch { resolve(false); }
         });
         return;
       }
       if (mode === 'bus') {
         AMap.plugin(['AMap.Transfer'], () => {
           try {
-            // 未指定城市时由高德自行推断，若失败则回退
-            const transfer = new AMap.Transfer({ map, nightflag: true });
-            transfer.search(a, b, (status: string) => { if (status !== 'complete') fallback(); });
-          } catch { fallback(); }
+            const transfer = new AMap.Transfer({ map, nightflag: true, panel });
+            transfer.search(a, b, (status: string) => { resolve(status === 'complete'); });
+          } catch { resolve(false); }
         });
         return;
       }
-    }
-  } catch { /* ignore */ }
-  fallback();
+      resolve(false);
+    } catch { resolve(false); }
+  });
 }
+
+// 使用 REST 公交换乘接口绘制路线（transit/integrated）
 
 export async function searchPlace(keyword: string, city?: string): Promise<{ lat: number; lng: number; name: string } | null> {
   const jsList = await searchPlacesViaJsApi(keyword, city, 1);
